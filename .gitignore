@@ -1,0 +1,6 @@
+# Local imagery (20GB+) — the app now serves images from the remote tile server
+obl/
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db

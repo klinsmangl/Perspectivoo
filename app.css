@@ -1,0 +1,95 @@
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+}
+
+#main-container {
+    height: 100%;
+}
+
+.sidebar {
+    width: 350px;
+    z-index: 10;
+    height: 100%;
+}
+
+#map {
+    background-color: #f8f9fa;
+}
+
+.result-item {
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 5px;
+    margin-bottom: 5px;
+}
+
+.result-item:last-child {
+    border-bottom: none;
+}
+
+/* Hide default OpenLayers rotation control to avoid conflict with custom compass */
+.ol-rotate {
+    display: none !important;
+}
+
+/* Custom Compass Styles */
+#compass-gradient-border {
+    background: conic-gradient(from -45deg, rgba(220, 53, 69, 0) 0%, rgba(220, 53, 69, 1) 12.5%, rgba(220, 53, 69, 0) 25%, rgba(220, 53, 69, 0) 100%);
+    transform: rotate(var(--map-rotation, 0deg));
+    transition: transform 0.15s ease-out;
+}
+
+.compass-slice-path {
+    fill: #ffffff;
+    stroke: #e9ecef;
+    stroke-width: 1;
+    transition: fill 0.2s ease, stroke 0.2s ease;
+}
+
+.compass-slice:hover .compass-slice-path {
+    fill: #f1f3f5;
+    stroke: #ced4da;
+}
+
+.compass-slice:active .compass-slice-path {
+    fill: #e9ecef;
+}
+
+.compass-slice-text {
+    font-weight: bold;
+    font-size: 14px;
+    fill: #495057;
+    user-select: none;
+    pointer-events: none;
+    text-anchor: middle;
+    dominant-baseline: central;
+    transition: fill 0.2s ease;
+}
+
+.compass-slice:hover .compass-slice-text {
+    fill: #212529;
+}
+
+.nadir-btn-text {
+    font-weight: bold;
+    font-size: 0.95rem;
+    color: #495057;
+    user-select: none;
+    pointer-events: none;
+    transition: color 0.2s ease;
+}
+
+/* Nadir button pressed state, toggled via the `active` class */
+#nadir-btn.active {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: #ffffff;
+}
+
+#nadir-btn.active .nadir-btn-text {
+    color: #ffffff !important;
+}
