@@ -1,69 +1,45 @@
-# ET-RDG → SLD (GeoServer) — Pipeline e entregáveis
+# PerspectiVôo
 
-## O que eu descobri no PDF
+Visualizador web de fotos aéreas oblíquas (voo CM Oblíquo, Fortaleza) sobre um
+mapa OpenStreetMap. Clique em um ponto do mapa e veja a foto capturada mais
+próxima, em quatro direções oblíquas ou visão de topo (Nadir).
 
-- **238 páginas**, texto real (não escaneado) — `pdftotext`/`pdfplumber` funcionam.
-- Os **pictogramas dos símbolos são desenhos vetoriais** dentro do próprio PDF
-  (linhas, curvas, retângulos via `PyMuPDF.page.get_drawings()`), não imagens
-  raster. Isso significa que dá pra extrair a geometria de cada símbolo por
-  código, mas cada um é um **desenho composto** (várias primitivas por
-  símbolo — ex.: o Aerogerador tem torre + 3 pás + círculo de base), então
-  não existe uma extração 100% automática para "isso é um triângulo" —
-  precisa de classificação visual (feita por mim, olhando cada página
-  renderizada) ou de um classificador geométrico mais elaborado.
-- **Anexo C (Cores)** e **Anexo D (Padrões de preenchimento)** são
-  **texto limpo e tabular** → extração 100% automática, sem revisão manual.
-  Já processei os dois por completo (22 cores, 24 padrões de preenchimento).
-- O catálogo de símbolos (Anexo A, 20 categorias, ~300 classes) segue sempre
-  a mesma estrutura textual (Classe / Código / Geometria / Condição / Cor /
-  Estilo / Peso), então o *metadado* de cada classe é extraível
-  automaticamente — só o *desenho do símbolo em si* precisa de revisão
-  visual.
+Site estático, sem build — `index.html` + `app.slim.js` + `app.css`, bibliotecas
+via CDN ([OpenLayers](https://openlayers.org/) 9.2.4 e proj4js).
 
-## Arquivos entregues nesta rodada
+## Como usar
 
-| Arquivo | Status | Conteúdo |
-|---|---|---|
-| `calibration.py` | ✅ completo | Funções de conversão mm→px calibradas (não é `mm*3.78`) para peso de linha, símbolo pontual e tile de preenchimento |
-| `colors.json` | ✅ completo | As 22 cores do Anexo C (nome → hex) |
-| `anexoD.txt` / `gen_fill_patterns.py` | ✅ completo | Parser + gerador SLD para os **24 padrões de preenchimento** do Anexo D (100% automatizado) |
-| `out/fill_patterns.json` | ✅ completo | Os 24 padrões estruturados (tile, primitivas, cor, tamanho) |
-| `out/fill_patterns.sld.xml` | ✅ completo | Blocos `PolygonSymbolizer` prontos, um por padrão (PAD-10 a PAD-40) |
-| `a1_energia_comunicacoes.json` | ✅ exemplo trabalhado | As 16 classes da categoria **A.1 Energia e Comunicações**, com `simplified_mark` curado visualmente |
-| `out/a1_energia_comunicacoes.sld` | ✅ exemplo trabalhado | SLD válido gerado a partir do JSON acima (13 regras) |
+- **Clique no mapa**: carrega a foto mais próxima do ponto clicado.
+- **Bússola** (canto superior direito): os quatro setores (N/L/S/O) giram o mapa
+  e trocam a direção da foto exibida (Left/Backward/Right/Forward); o botão
+  central alterna a visão **Nadir** (topo).
+- **Link direto**: `?lat=<lat>&lon=<lon>&z=<zoom>&r=<rotação em graus>` abre já
+  centralizado no ponto, como se tivesse sido clicado. A própria navegação
+  (clique, zoom, rotação) atualiza a URL automaticamente para poder ser
+  compartilhada.
 
-## Sobre a simplificação de marcas
+## Dados
 
-Segui exatamente a ideia que você propôs: em vez de `ExternalGraphic` com
-SVG, uso `WellKnownName` (`circle`, `triangle`, `square`, `cross`, `x`) e
-extensões do GeoServer (`shape://vertline`, `shape://slash`,
-`shape://times`, etc). Quando o símbolo original é composto (a maioria dos
-pictogramas pontuais da ET-RDG é), a técnica usada é **empilhar múltiplos
-`PointSymbolizer` na mesma `Rule`** — o GeoServer renderiza na ordem declarada,
-então dá pra simular "círculo + triângulo por cima" etc. Isso preserva a
-leitura geral do símbolo sem tentar reproduzir o desenho exato.
+- Fotos (`.jpg` + `.jgw`) e o índice de subpastas (`obq_index.json`) vêm do
+  servidor `servidor-interno.exemplo.com`.
+- O footprint dos pontos (`OBQ-FOOTPRINT.geojson`, EPSG:4326) também vem desse
+  servidor; cada foto é reprojetada de EPSG:31984 (SIRGAS 2000 / UTM 24S) para
+  EPSG:3857 no carregamento.
+- Imagens grandes (~80MP) são baixadas e reduzidas no navegador
+  (`createImageBitmap`) para uma versão leve usada em zoom out; a versão
+  full-res só é decodificada quando o zoom exige.
 
-Marquei em cada caso um campo `fidelidade_original` (ALTA/MÉDIA/BAIXA) —
-linhas (Trecho_Comunic, Trecho_Energia) e padrões de preenchimento
-convertem com fidelidade alta; símbolos pontuais compostos (Aerogerador,
-Torre_Energia) são aproximações e vale revisar visualmente antes de ir
-para produção.
+## Deploy
 
-## O que falta (escopo real)
+Publicado via GitHub Pages (branch `main`, raiz do repo) — sem passo de build,
+basta servir os arquivos estaticamente.
 
-A ET-RDG tem **20 categorias no Anexo A** (Energia e Comunicações é a
-menor, com 16 classes) e mais **10 categorias no Anexo B** (símbolos
-específicos para ortoimagem). No total isso é algo entre **250 e 350
-classes**, cada uma com 1 a 4 casos. Fazer isso com a mesma qualidade da
-amostra A.1 — metadado extraído + inspeção visual da página + mark
-simplificado + nota de fidelidade — é viável, mas é um trabalho grande:
-dá pra estimar ~1 categoria por rodada de trabalho, então é melhor eu
-continuar **categoria por categoria**, e você vai validando o resultado
-(pode ajustar o mapeamento de marcas conforme o gosto, por exemplo trocar
-`triangle` por `shape://plus` em antenas).
+## Estrutura
 
-**Sugestão de ordem** (categorias com mais classes primeiro, já que são as
-que mais aparecem em mapas): Sistema de Transporte Rodoviário (A.13),
-Hidrografia (A.3), Edificações (A.18), Relevo (A.6), depois as menores.
-
-Quer que eu continue pela A.3 (Hidrografia) ou prefere escolher a ordem?
+| Arquivo | Descrição |
+| --- | --- |
+| `index.html` | Marcação da página, bússola e overlay de loading |
+| `app.slim.js` | Lógica ativa (carregada pelo `index.html`) |
+| `app.css` | Estilos da bússola e do botão Nadir |
+| `obq_index.json` | Mapa `nome da imagem → subpasta` no servidor remoto |
+| `app.js`, `app.jpg.js`, `pontos31984.geojson` | Protótipos anteriores, não usados em produção |
