@@ -43,3 +43,8 @@ basta servir os arquivos estaticamente.
 | `app.css` | Estilos da bússola e do botão Nadir |
 | `obq_index.json` | Mapa `nome da imagem → subpasta` no servidor remoto |
 | `app.js`, `app.jpg.js`, `pontos31984.geojson` | Protótipos anteriores, não usados em produção |
+
+## Licença
+
+Todos os direitos reservados — veja [LICENSE](LICENSE). Código público para
+demonstração; uso, cópia ou redistribuição requerem permissão por escrito.
