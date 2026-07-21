@@ -13,6 +13,9 @@ via CDN ([OpenLayers](https://openlayers.org/) 9.2.4 e proj4js).
 - **Bússola** (canto superior direito): os quatro setores (N/L/S/O) giram o mapa
   e trocam a direção da foto exibida (Left/Backward/Right/Forward); o botão
   central alterna a visão **Nadir** (topo).
+- **Setas de ciclagem** (abaixo da bússola): aparecem quando há 2 ou mais fotos
+  próximas na direção atual, permitindo alternar entre as candidatas mais
+  próximas do ponto clicado.
 - **Link direto**: `?lat=<lat>&lon=<lon>&z=<zoom>&r=<rotação em graus>` abre já
   centralizado no ponto, como se tivesse sido clicado. A própria navegação
   (clique, zoom, rotação) atualiza a URL automaticamente para poder ser
@@ -20,11 +23,16 @@ via CDN ([OpenLayers](https://openlayers.org/) 9.2.4 e proj4js).
 
 ## Dados
 
-- Fotos (`.jpg` + `.jgw`) e o índice de subpastas (`obq_index.json`) vêm do
-  servidor `servidor-interno.exemplo.com`.
+- Fotos (`.jpg`) vêm do servidor `servidor-interno.exemplo.com`;
+  `obq_index.json` (local, neste repo) mapeia cada nome de imagem para sua
+  subpasta e, idealmente, para `w`/`h`/`jgw` já extraídos — evitando um
+  request extra por foto. Sem esses dados, a foto's `.jgw` é buscado e suas
+  dimensões são obtidas sondando o próprio JPG.
 - O footprint dos pontos (`OBQ-FOOTPRINT.geojson`, EPSG:4326) também vem desse
-  servidor; cada foto é reprojetada de EPSG:31984 (SIRGAS 2000 / UTM 24S) para
-  EPSG:3857 no carregamento.
+  servidor; a posição de cada foto vem do seu `.jgw` (EPSG:31984, SIRGAS 2000
+  / UTM 24S), reprojetado para EPSG:3857 no carregamento.
+- Para cada direção, as até 4 fotos mais próximas do ponto clicado ficam
+  disponíveis para ciclagem (ver acima); apenas a foto exibida é carregada.
 - Imagens grandes (~80MP) são baixadas e reduzidas no navegador
   (`createImageBitmap`) para uma versão leve usada em zoom out; a versão
   full-res só é decodificada quando o zoom exige.

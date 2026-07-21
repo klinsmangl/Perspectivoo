@@ -284,16 +284,35 @@ function syncUrl() {
     history.replaceState(null, '', `${location.pathname}?${p}`);
 }
 
-// Select a point as if it had been clicked: drop the marker, cancel and invalidate the
-// per-click image cache, and load the current direction. Used by both real clicks and
-// the ?lat=&lon= URL params below.
+// Select a point as if it had been clicked: drop the marker and load the current
+// direction. Used by both real clicks and the ?lat=&lon= URL params below.
+//
+// Fast path: if the nearest photo for the active direction is the SAME photo already
+// on screen (common for two clicks a few meters apart), just move the marker — skip
+// the image teardown/reload so the displayed photo never flickers off and on.
 function selectPoint(coord) {
+    const dir = activeDir;
+    const prevEntry = currentEntry();
+    const prevName = dir && candidates[dir] ? candidates[dir][photoIdx[dir]] : null;
+
     clickCoord = coord;
+    markerSource.clear();
+    markerSource.addFeature(new ol.Feature(new ol.geom.Point(coord)));
+
+    if (dir && prevEntry) {
+        const names = closestNames(dir); // uses clickCoord, already updated above
+        if (names[0] === prevName) {
+            candidates = { [dir]: names };
+            photoIdx = { [dir]: 0 };
+            updateCycleControl();
+            syncUrl();
+            return;
+        }
+    }
+
     clickGen++;               // orphan any load that resolves despite the abort
     aborter?.abort();         // actually cancel in-flight downloads
     aborter = new AbortController();
-    markerSource.clear();
-    markerSource.addFeature(new ol.Feature(new ol.geom.Point(coord)));
     imgLayer.setSource(null); // detach before revoking, so no source references the URLs
     Object.values(sourceCache).forEach(discardEntry);
     sourceCache = {};
