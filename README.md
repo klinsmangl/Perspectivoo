@@ -5,7 +5,8 @@ mapa OpenStreetMap. Clique em um ponto do mapa e veja a foto capturada mais
 próxima, em quatro direções oblíquas ou visão de topo (Nadir).
 
 Site estático, sem build — `index.html` + `app.slim.js` + `app.css`, bibliotecas
-via CDN ([OpenLayers](https://openlayers.org/) 9.2.4 e proj4js).
+([Bootstrap](https://getbootstrap.com/), [OpenLayers](https://openlayers.org/)
+e proj4js) servidas localmente de `vendor/`.
 
 ## Como usar
 
@@ -39,8 +40,9 @@ via CDN ([OpenLayers](https://openlayers.org/) 9.2.4 e proj4js).
 
 ## Deploy
 
-Publicado via GitHub Pages (branch `main`, raiz do repo) — sem passo de build,
-basta servir os arquivos estaticamente.
+Publicado via GitLab Pages (`.gitlab-ci.yml`, branch padrão) — sem passo de
+build, o job só copia `index.html`, `app.slim.js`, `app.css`,
+`obq_index.json` e `vendor/` para `public/`.
 
 ## Estrutura
 
@@ -50,7 +52,8 @@ basta servir os arquivos estaticamente.
 | `app.slim.js` | Lógica ativa (carregada pelo `index.html`) |
 | `app.css` | Estilos da bússola e do botão Nadir |
 | `obq_index.json` | Mapa `nome da imagem → subpasta` no servidor remoto |
-| `app.js`, `app.jpg.js`, `pontos31984.geojson` | Protótipos anteriores, não usados em produção |
+| `vendor/` | Bootstrap, OpenLayers e proj4js (servidos localmente, sem CDN) |
+| `.gitlab-ci.yml` | Job de deploy do GitLab Pages |
 
 ## Licença
 
