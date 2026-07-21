@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 
 <head>
     <meta charset="UTF-8">
@@ -35,27 +35,28 @@
 
                 <!-- Pie Slices SVG -->
                 <svg xmlns="http://www.w3.org/2000/svg" width="124" height="124" viewBox="0 0 124 124"
-                    class="position-absolute start-0 top-0 w-100 h-100" style="z-index: 1;">
+                    class="position-absolute start-0 top-0 w-100 h-100" style="z-index: 1;"
+                    aria-label="Selecionar direção da vista">
                     <!-- North Slice -->
-                    <g class="compass-slice" onclick="setMapRotation(0)">
+                    <g class="compass-slice" role="button" aria-label="Norte" onclick="setMapRotation(0)">
                         <path class="compass-slice-path"
                             d="M 18.16 18.16 A 62 62 0 0 1 105.84 18.16 L 84.98 39.02 A 32.5 32.5 0 0 0 39.02 39.02 Z" />
                         <text x="62" y="19" class="compass-slice-text">N</text>
                     </g>
                     <!-- East Slice -->
-                    <g class="compass-slice" onclick="setMapRotation(90)">
+                    <g class="compass-slice" role="button" aria-label="Leste" onclick="setMapRotation(90)">
                         <path class="compass-slice-path"
                             d="M 105.84 18.16 A 62 62 0 0 1 105.84 105.84 L 84.98 84.98 A 32.5 32.5 0 0 0 84.98 39.02 Z" />
                         <text x="105" y="62" class="compass-slice-text">E</text>
                     </g>
                     <!-- South Slice -->
-                    <g class="compass-slice" onclick="setMapRotation(180)">
+                    <g class="compass-slice" role="button" aria-label="Sul" onclick="setMapRotation(180)">
                         <path class="compass-slice-path"
                             d="M 105.84 105.84 A 62 62 0 0 1 18.16 105.84 L 39.02 84.98 A 32.5 32.5 0 0 0 84.98 84.98 Z" />
                         <text x="62" y="105" class="compass-slice-text">S</text>
                     </g>
                     <!-- West Slice -->
-                    <g class="compass-slice" onclick="setMapRotation(270)">
+                    <g class="compass-slice" role="button" aria-label="Oeste" onclick="setMapRotation(270)">
                         <path class="compass-slice-path"
                             d="M 18.16 105.84 A 62 62 0 0 1 18.16 18.16 L 39.02 39.02 A 32.5 32.5 0 0 0 39.02 84.98 Z" />
                         <text x="19" y="62" class="compass-slice-text">W</text>
@@ -64,28 +65,40 @@
 
                 <!-- Central Display / Nadir Button. Direction is shown by the red arrow
                      (--map-rotation) and this button's pressed state, not by text. -->
-                <button id="nadir-btn"
+                <button id="nadir-btn" type="button"
                     class="btn btn-light rounded-circle shadow-sm border text-center d-flex flex-column justify-content-center align-items-center position-absolute"
                     style="width: 65px; height: 65px; line-height: 1.1; padding: 0; z-index: 10; top: 50%; left: 50%; transform: translate(-50%, -50%);"
-                    onclick="setNadir()" title="Click for Nadir view" aria-pressed="false">
+                    onclick="setNadir()" title="Alternar vista nadir" aria-pressed="false">
                     <span class="nadir-btn-text">Nadir</span>
                 </button>
+            </div>
+
+            <!-- Cycle control: dot indicator + prev/next arrows through the closest
+                 candidate photos. Hidden (d-none, toggled by JS) unless there are 2+. -->
+            <div id="cycle-control" role="group" aria-label="Fotos mais próximas"
+                class="position-absolute d-flex align-items-center bg-white rounded-pill shadow-sm d-none"
+                style="top: 154px; left: 50%; transform: translateX(-50%); z-index: 1000; gap: 6px; padding: 4px 6px;">
+                <button type="button" aria-label="Foto anterior" title="Foto anterior"
+                    class="btn btn-light btn-sm rounded-circle p-0 d-flex align-items-center justify-content-center"
+                    style="width: 26px; height: 26px;" onclick="cyclePhoto(-1)">&#8249;</button>
+                <span id="cycle-dots" class="d-flex align-items-center" style="gap: 5px;" aria-hidden="true"></span>
+                <button type="button" aria-label="Próxima foto" title="Próxima foto"
+                    class="btn btn-light btn-sm rounded-circle p-0 d-flex align-items-center justify-content-center"
+                    style="width: 26px; height: 26px;" onclick="cyclePhoto(1)">&#8250;</button>
             </div>
         </div>
 
         <!-- Loading overlay -->
-        <div id="loading-overlay"
+        <div id="loading-overlay" role="status"
             class="position-absolute top-50 start-50 translate-middle bg-white p-3 rounded shadow d-none"
             style="z-index: 1000;">
-            <div class="spinner-border spinner-border-sm text-dark me-2" role="status"></div>
-            <span>Loading Image...</span>
+            <div class="spinner-border spinner-border-sm text-dark me-2" aria-hidden="true"></div>
+            <span>Carregando imagem…</span>
         </div>
     </div>
 
     <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
-    <!-- geotiff.js: the ol.js bundle does not include it; ol.source.GeoTIFF needs the global -->
-    <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
 
     <script src="app.slim.js"></script>
