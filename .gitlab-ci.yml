@@ -2,8 +2,8 @@ pages:
   stage: deploy
   script:
     - mkdir public
-    - cp index.html app.slim.js app.css obq_index.json public/
-    - cp -r vendor public/
+    - cp index.html app.slim.js app.css public/
+    - cp -r vendor obq_index public/
   artifacts:
     paths:
       - public

@@ -23,10 +23,13 @@ External libs (CDN, global scope): `ol` 9.2.4, `proj4` 2.11.0, Bootstrap CSS (st
   (no per-frame reprojection) — see "Known simplifications".
 
 ## Data sources
-- `obq_index.json` — served locally, maps `name -> { dir, w, h, jgw }` (enriched format:
-  subfolder, pixel size, world-file coefficients). Old-format entries (`name -> "SUBPASTA"`
-  string) are also accepted; `w`/`h`/`jgw` are then fetched per-image as a fallback
-  (`name.jgw` + probing the JPG's natural size).
+- `obq_index/FXnnnn.json` — served locally, one shard per FX flight-line code, each mapping
+  `name -> { dir, w, h, jgw }` (enriched format: subfolder, pixel size, world-file
+  coefficients). Old-format entries (`name -> "SUBPASTA"` string) are also accepted;
+  `w`/`h`/`jgw` are then fetched per-image as a fallback (`name.jgw` + probing the JPG's
+  natural size). Shards are generated from `obq_index.json` by `scripts/shard-index.js`
+  and fetched lazily by `getMeta()`, one per FX code actually needed, instead of loading
+  the ~6MB combined index upfront.
 - `OBQ-FOOTPRINT.geojson` — fetched from the remote tile server on startup, gives every
   photo's location (`properties.name`, `properties.view_th`) as point features. Loaded
   into `dataSource`, a `Vector` source never added to the map — used purely as an
@@ -35,7 +38,8 @@ External libs (CDN, global scope): `ol` 9.2.4, `proj4` 2.11.0, Bootstrap CSS (st
   the remote tile server.
 
 ## State (module globals in `app.slim.js`)
-- `index` — `name -> { dir, w, h, jgw }` from `obq_index.json`.
+- `indexShards` — `FX code -> Promise<shard>`, populated lazily by `getMeta()` as photos
+  are shown; each resolved shard is `name -> { dir, w, h, jgw }`.
 - `clickCoord` — last selected point (EPSG:3857), anchor for rotation and distance math.
 - `nadir` / `activeDir` — current view mode; `activeDir` is one of `DIRECTIONS` or `'Nadir'`.
 - `candidates` — `{ dir: [name, ...] }`, up to `MAX_CANDIDATES` nearest names per direction,
@@ -91,10 +95,11 @@ External libs (CDN, global scope): `ol` 9.2.4, `proj4` 2.11.0, Bootstrap CSS (st
 - `setNadir()` toggles `nadir` and re-shows.
 
 ### Deep link
-On startup, once both the index and footprint GeoJSON have loaded: if `?lat=&lon=` are
-present, set center/zoom/rotation from the URL (rotation before `selectPoint`, so the
-right direction loads immediately) and call `selectPoint`. Otherwise fit the view to the
-footprint's extent (`maxZoom: 16`).
+On startup, once the footprint GeoJSON has loaded: if `?lat=&lon=` are present, set
+center/zoom/rotation from the URL (rotation before `selectPoint`, so the right direction
+loads immediately) and call `selectPoint`. Otherwise fit the view to the footprint's
+extent (`maxZoom: 16`). Per-photo metadata is not awaited here — `makeSource()` fetches
+each name's FX shard on demand.
 
 ## Conventions
 - Direction order `['Left','Backward','Right','Forward']` is indexed by rotation quadrant;
@@ -109,4 +114,6 @@ footprint's extent (`maxZoom: 16`).
 - A failed image load only `console.error`s; the loading overlay still clears as if it
   had succeeded (`app.slim.js:216-218`).
 - No validation that `view_th`/`name` exist on a footprint feature, or that
-  `obq_index.json` entries are well-formed.
+  `obq_index/FXnnnn.json` entries are well-formed.
+- `getMeta()` derives the shard file from the name's `FX(\d+)_` prefix; a name that
+  doesn't match falls back to the slow per-image probe (same as a missing/malformed entry).

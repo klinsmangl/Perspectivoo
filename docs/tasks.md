@@ -5,8 +5,8 @@ the backlog tracks gaps a future iteration would close.
 
 ## Done
 - [x] Register EPSG:31984, init OSM map + view over Fortaleza — `FR-1`
-- [x] Load `obq_index.json` + remote `OBQ-FOOTPRINT.geojson` in parallel, fit view to
-      extent — `FR-2`
+- [x] Load remote `OBQ-FOOTPRINT.geojson`, fit view to extent; per-photo metadata comes
+      from `obq_index/FXnnnn.json` shards fetched lazily — `FR-2`
 - [x] Click handler: marker + nearest candidates per direction via spatial index — `FR-3`
 - [x] Two-tier image loading (downscaled first, full-res swap on zoom-in) from JPG+JGW,
       no COG/GeoTIFF dependency — `FR-3`
@@ -24,7 +24,7 @@ the backlog tracks gaps a future iteration would close.
 - [ ] **Surface load errors to the user.** Failed loads only `console.error`/`console.warn`;
       the overlay clears as if successful (`app.slim.js:216-218`).
 - [ ] **Guard the data contract.** No validation that `view_th`/`name` exist on footprint
-      features, or that `obq_index.json` entries have well-formed `jgw`.
+      features, or that `obq_index/FXnnnn.json` entries have well-formed `jgw`.
 - [ ] **One smoke check.** No test exists. Minimum: assert `dirFromRotation()`'s quadrant
       math (e.g. rotation `3π/2` → `Forward`, negative rotations wrap correctly) and
       `closestNames()` respects `MAX_CANDIDATES` + exclusion.

@@ -24,11 +24,17 @@ e proj4js) servidas localmente de `vendor/`.
 
 ## Dados
 
-- Fotos (`.jpg`) vêm do servidor `servidor-interno.exemplo.com`;
-  `obq_index.json` (local, neste repo) mapeia cada nome de imagem para sua
-  subpasta e, idealmente, para `w`/`h`/`jgw` já extraídos — evitando um
-  request extra por foto. Sem esses dados, a foto's `.jgw` é buscado e suas
-  dimensões são obtidas sondando o próprio JPG.
+- Fotos (`.jpg`) vêm de um servidor configurável: no primeiro acesso o app
+  pergunta o endereço (`prompt()` nativo) e guarda em `localStorage`
+  (`obq_server_base`); para trocar depois, limpe essa chave. O índice local
+  mapeia cada nome de imagem para sua subpasta e, idealmente,
+  para `w`/`h`/`jgw` já extraídos — evitando um request extra por foto. Sem
+  esses dados, a foto's `.jgw` é buscado e suas dimensões são obtidas
+  sondando o próprio JPG. Esse índice é fragmentado em `obq_index/FXnnnn.json`
+  (um arquivo por código de faixa de voo, gerado por
+  `scripts/shard-index.js` a partir de `obq_index.json`), para que o app
+  baixe só o(s) fragmento(s) das fotos realmente exibidas em vez de um único
+  arquivo de ~6MB no carregamento inicial.
 - O footprint dos pontos (`OBQ-FOOTPRINT.geojson`, EPSG:4326) também vem desse
   servidor; a posição de cada foto vem do seu `.jgw` (EPSG:31984, SIRGAS 2000
   / UTM 24S), reprojetado para EPSG:3857 no carregamento.
@@ -42,7 +48,8 @@ e proj4js) servidas localmente de `vendor/`.
 
 Publicado via GitLab Pages (`.gitlab-ci.yml`, branch padrão) — sem passo de
 build, o job só copia `index.html`, `app.slim.js`, `app.css`,
-`obq_index.json` e `vendor/` para `public/`.
+`obq_index/` e `vendor/` para `public/`. `obq_index.json` (a fonte, não
+fragmentada) fica no repo mas não é publicado — não é mais lido pelo app.
 
 ## Estrutura
 
@@ -51,7 +58,8 @@ build, o job só copia `index.html`, `app.slim.js`, `app.css`,
 | `index.html` | Marcação da página, bússola e overlay de loading |
 | `app.slim.js` | Lógica ativa (carregada pelo `index.html`) |
 | `app.css` | Estilos da bússola e do botão Nadir |
-| `obq_index.json` | Mapa `nome da imagem → subpasta` no servidor remoto |
+| `obq_index.json` | Fonte do índice completo; não publicado, veja `scripts/shard-index.js` |
+| `obq_index/` | Índice fragmentado por faixa de voo (`FXnnnn.json`), publicado e servido sob demanda |
 | `vendor/` | Bootstrap, OpenLayers e proj4js (servidos localmente, sem CDN) |
 | `.gitlab-ci.yml` | Job de deploy do GitLab Pages |
 

@@ -19,14 +19,15 @@ clicked point, arrows let the user cycle through the closest few.
 - Fill the full viewport; no chrome.
 
 ### FR-2 Data load
-- On startup, fetch in parallel:
-  - `obq_index.json` (local) — `name -> { dir, w, h, jgw }`, or the older
-    `name -> "SUBPASTA"` string form.
-  - `OBQ-FOOTPRINT.geojson` (remote, EPSG:4326) — point features with
-    `properties.name` (photo filename, no extension) and `properties.view_th`
-    (`Left`, `Backward`, `Right`, `Forward`, or `Nadir`).
-- After load, fit the view to the extent of all footprint points (max zoom 16) — unless
-  a deep link (FR-7) is present.
+- On startup, fetch `OBQ-FOOTPRINT.geojson` (remote, EPSG:4326) — point features with
+  `properties.name` (photo filename, no extension) and `properties.view_th`
+  (`Left`, `Backward`, `Right`, `Forward`, or `Nadir`).
+- Per-photo metadata (`name -> { dir, w, h, jgw }`, or the older `name -> "SUBPASTA"`
+  string form) is not preloaded: it's sharded locally by FX flight-line code under
+  `obq_index/FXnnnn.json`, and each shard is fetched only when a photo from that flight
+  line is actually shown.
+- After the footprint loads, fit the view to the extent of all points (max zoom 16) —
+  unless a deep link (FR-7) is present.
 
 ### FR-3 Click → nearest photo per direction
 - On single map click, drop a red marker at the clicked coordinate and cancel any loads
@@ -37,8 +38,8 @@ clicked point, arrows let the user cycle through the closest few.
   (`MAX_DIM` = 4096px cap), swapped for the native-resolution version once the view
   zooms in past what the downscaled pixels can cover.
 - A photo's on-map position/extent comes from its `.jgw` world-file coefficients
-  (embedded in `obq_index.json` when available, else fetched per-image) reprojected from
-  EPSG:31984 to EPSG:3857.
+  (embedded in its `obq_index/FXnnnn.json` shard when available, else fetched per-image)
+  reprojected from EPSG:31984 to EPSG:3857.
 
 ### FR-4 Direction selection via compass
 - The compass has four clickable pie slices (N/E/S/W → rotation 0/90/180/270°) and a
@@ -75,7 +76,10 @@ clicked point, arrows let the user cycle through the closest few.
   available but loading degrades gracefully (native-resolution image only) without them.
 
 ## Out of scope / assumptions
-- The app does not produce `obq_index.json`, the footprint GeoJSON, or the photos; the
-  index is deployed alongside the app, the rest is served by
-  `servidor-interno.exemplo.com`.
+- The app does not produce `obq_index.json` (delivered externally), the footprint
+  GeoJSON, or the photos. `obq_index.json` is split into `obq_index/FXnnnn.json` shards
+  by `scripts/shard-index.js`, run manually whenever a new delivery replaces it; the
+  shards are deployed alongside the app, the rest is served by a configurable
+  server: asked via `prompt()` on first load and cached in `localStorage`
+  (`obq_server_base`), see `getServerBase()` in app.slim.js.
 - No authentication, no persistence beyond the shareable URL, no server-side code.

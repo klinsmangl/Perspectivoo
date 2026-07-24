@@ -1,5 +1,7 @@
 // Slim JPG+JGW variant. One image layer, lazy per-direction loading, two-tier zoom.
-// Best served by an enriched obq_index.json:
+// Metadata is sharded by FX flight-line code under obq_index/ (see scripts/shard-index.js)
+// so the app fetches only the shard(s) covering the photos actually shown, not one big
+// index file. Each shard is name -> { dir, w, h, jgw } (or just a folder string, old format):
 //   { "IMG_NAME": { "dir": "SUBPASTA", "w": 10328, "h": 7760, "jgw": [a, e, c, f] }, ... }
 // (a = x scale, e = y scale (negative), c/f = map coords of upper-left pixel CENTER)
 // Falls back to fetching NAME.jgw + probing the JPG if "jgw" is missing.
@@ -7,7 +9,20 @@
 proj4.defs('EPSG:31984', '+proj=utm +zone=24 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
 ol.proj.proj4.register(proj4);
 
-const IMG_DIR = 'https://servidor-interno.exemplo.com/mapear/FORTALEZA_VOO_CM_OBLIQUO';
+// Server host isn't hardcoded (repo is public): asked once via prompt() and
+// cached in localStorage so later loads don't ask again.
+function getServerBase() {
+    const KEY = 'obq_server_base';
+    let base = localStorage.getItem(KEY);
+    while (!base) {
+        base = (window.prompt('Endereço do servidor de mapas (ex: https://servidor.exemplo.gov.br):') || '').trim().replace(/\/+$/, '');
+        if (base) localStorage.setItem(KEY, base);
+    }
+    return base;
+}
+
+const SERVER_BASE = getServerBase();
+const IMG_DIR = `${SERVER_BASE}/mapear/FORTALEZA_VOO_CM_OBLIQUO`;
 const DIRECTIONS = ['Left', 'Backward', 'Right', 'Forward'];
 const MAX_DIM = 4096;      // downscale cap: ~16x less RAM/bandwidth-per-frame than 10k x 8k
 const DEEP_LINK_ZOOM = 20; // zoom applied when arriving via ?lat=&lon=
@@ -19,7 +34,7 @@ const overlay = document.getElementById('loading-overlay');
 const cycleControl = document.getElementById('cycle-control');
 const cycleDots = document.getElementById('cycle-dots');
 
-let index = {};          // name -> { dir, w, h, jgw } (or just a folder string, old format)
+let indexShards = {};     // FX code -> Promise<shard> (fetched lazily, cached for the session)
 let clickCoord = null;
 let nadir = false;
 let activeDir = null;
@@ -69,6 +84,22 @@ const fetchOk = (url, signal) => fetch(url, { signal }).then(r => {
 // Each entry owns its downscaled blob URL; revoke it the moment the entry is dropped.
 const discardEntry = entry => { if (entry.blobUrl) URL.revokeObjectURL(entry.blobUrl); };
 
+// Metadata for `name` from its FX-code shard, fetching (and caching) that shard on
+// first use. Keeps startup to one request instead of loading every flight line's index.
+function getMeta(name, signal) {
+    const fx = name.match(/^FX(\d+)_/)?.[1];
+    if (!fx) return Promise.resolve(undefined);
+    indexShards[fx] ??= fetchOk(`obq_index/FX${fx}.json`, signal)
+        .then(r => r.json())
+        .catch(err => {
+            delete indexShards[fx]; // don't cache an aborted/failed fetch — let the next call retry
+            if (err.name === 'AbortError') throw err;
+            console.error(`Error loading index shard FX${fx}`, err);
+            return {};
+        });
+    return indexShards[fx].then(shard => shard[name]);
+}
+
 // All image sources share the map projection: extent pre-transformed to 3857, so OL
 // just drawImage()s the raster (like a plain <img>) instead of warping it per frame.
 // Fine here — near the equator and close to zone 24S's central meridian, the error
@@ -84,7 +115,7 @@ const makeStatic = (url, extent) => new ol.source.ImageStatic({
 // (1 request: the JPG). `small` is cheap to draw at any zoom; `full` is decoded lazily,
 // only once the view zooms past what `small`'s pixels can cover — see applySource().
 async function makeSource(name, signal) {
-    let meta = index[name];
+    let meta = await getMeta(name, signal);
     if (typeof meta === 'string') meta = { dir: meta }; // old index format
     const base = meta?.dir ? `${IMG_DIR}/${meta.dir}` : IMG_DIR;
     const url = `${base}/${name}.jpg`;
@@ -346,39 +377,34 @@ window.setNadir = () => {
     show(dirFromRotation());
 };
 
-// Both must be loaded before a ?lat=&lon= auto-select runs — selectPoint() -> show()
-// -> makeSource() reads `index` synchronously, and if it's still {} at that point
-// (index fetch slower than geojson) it silently falls back to the slow per-image probe.
-Promise.all([
-    fetchOk('https://servidor-interno.exemplo.com/mapear/OBQ-GEOMETRIA/OBQ-FOOTPRINT.geojson')
-        .then(r => r.json())
-        .catch(err => { console.error('Error loading geojson', err); return null; }),
-    fetchOk('obq_index.json')
-        .then(r => r.json())
-        .catch(err => { console.error('Error loading obq_index', err); return {}; })
-]).then(([geojson, idx]) => {
-    index = idx;
-    if (!geojson) return;
+// The footprint geojson must be loaded before a ?lat=&lon= auto-select runs (it backs
+// dataSource, used by closestNames()). Per-photo metadata is no longer preloaded here —
+// makeSource() fetches each name's FX shard lazily via getMeta().
+fetchOk(`${SERVER_BASE}/mapear/OBQ-GEOMETRIA/OBQ-FOOTPRINT.geojson`)
+    .then(r => r.json())
+    .catch(err => { console.error('Error loading geojson', err); return null; })
+    .then(geojson => {
+        if (!geojson) return;
 
-    dataSource.addFeatures(new ol.format.GeoJSON().readFeatures(geojson, {
-        dataProjection: 'EPSG:4326',
-        featureProjection: 'EPSG:3857'
-    }));
+        dataSource.addFeatures(new ol.format.GeoJSON().readFeatures(geojson, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: 'EPSG:3857'
+        }));
 
-    // ?lat=&lon= in the URL: jump straight to that point, as if clicked.
-    const params = new URLSearchParams(location.search);
-    const lat = parseFloat(params.get('lat'));
-    const lon = parseFloat(params.get('lon'));
-    if (!isNaN(lat) && !isNaN(lon)) {
-        const coord = ol.proj.fromLonLat([lon, lat]);
-        const z = parseFloat(params.get('z'));
-        const r = parseFloat(params.get('r'));
-        view.setCenter(coord);
-        view.setZoom(isNaN(z) ? DEEP_LINK_ZOOM : z);
-        if (!isNaN(r)) view.setRotation(r * Math.PI / 180); // before selectPoint, so the right direction loads
-        selectPoint(coord);
-    } else {
-        const extent = dataSource.getExtent();
-        if (!ol.extent.isEmpty(extent)) view.fit(extent, { padding: [50, 50, 50, 50], maxZoom: 16 });
-    }
-});
+        // ?lat=&lon= in the URL: jump straight to that point, as if clicked.
+        const params = new URLSearchParams(location.search);
+        const lat = parseFloat(params.get('lat'));
+        const lon = parseFloat(params.get('lon'));
+        if (!isNaN(lat) && !isNaN(lon)) {
+            const coord = ol.proj.fromLonLat([lon, lat]);
+            const z = parseFloat(params.get('z'));
+            const r = parseFloat(params.get('r'));
+            view.setCenter(coord);
+            view.setZoom(isNaN(z) ? DEEP_LINK_ZOOM : z);
+            if (!isNaN(r)) view.setRotation(r * Math.PI / 180); // before selectPoint, so the right direction loads
+            selectPoint(coord);
+        } else {
+            const extent = dataSource.getExtent();
+            if (!ol.extent.isEmpty(extent)) view.fit(extent, { padding: [50, 50, 50, 50], maxZoom: 16 });
+        }
+    });
