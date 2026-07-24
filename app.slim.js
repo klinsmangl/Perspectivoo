@@ -9,19 +9,37 @@
 proj4.defs('EPSG:31984', '+proj=utm +zone=24 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
 ol.proj.proj4.register(proj4);
 
-// Server host isn't hardcoded (repo is public): asked once via prompt() and
-// cached in localStorage so later loads don't ask again.
-function getServerBase() {
+// Server host isn't hardcoded (repo is public): asked once via prompt(), checked by
+// actually fetching a known obliquo file (confirms it's not just reachable but really
+// serving this dataset), then cached in localStorage so later loads don't ask again.
+async function isValidServerUrl(url) {
+    try {
+        if (!['http:', 'https:'].includes(new URL(url).protocol)) return false;
+        const r = await fetch(`${url}/mapear/OBQ-GEOMETRIA/OBQ-FOOTPRINT.geojson`, { method: 'HEAD' });
+        return r.ok;
+    } catch {
+        return false;
+    }
+}
+
+async function getServerBase() {
     const KEY = 'obq_server_base';
     let base = localStorage.getItem(KEY);
     while (!base) {
-        base = (window.prompt('Endereço do servidor de mapas (ex: https://servidor.exemplo.gov.br):') || '').trim().replace(/\/+$/, '');
-        if (base) localStorage.setItem(KEY, base);
+        const input = (window.prompt('Endereço do servidor de mapas (ex: https://servidor.exemplo.com):') || '').trim().replace(/\/+$/, '');
+        if (input && await isValidServerUrl(input)) {
+            base = input;
+            localStorage.setItem(KEY, base);
+        } else if (input) {
+            alert('Servidor inválido ou inacessível. Tente novamente.');
+        }
     }
     return base;
 }
 
-const SERVER_BASE = getServerBase();
+(async () => {
+
+const SERVER_BASE = await getServerBase();
 const IMG_DIR = `${SERVER_BASE}/mapear/FORTALEZA_VOO_CM_OBLIQUO`;
 const DIRECTIONS = ['Left', 'Backward', 'Right', 'Forward'];
 const MAX_DIM = 4096;      // downscale cap: ~16x less RAM/bandwidth-per-frame than 10k x 8k
@@ -408,3 +426,5 @@ fetchOk(`${SERVER_BASE}/mapear/OBQ-GEOMETRIA/OBQ-FOOTPRINT.geojson`)
             if (!ol.extent.isEmpty(extent)) view.fit(extent, { padding: [50, 50, 50, 50], maxZoom: 16 });
         }
     });
+
+})();
